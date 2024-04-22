@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+        <title>ArgoCD Status</title>        
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.4.1/dist/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+        <style type="text/css">
+          body { background: #212529 !important; }
+       </style>
+    </head>
+    <body>
+        <table id="data" class="table table-dark">
+            <thead>
+              <tr>
+                <th>App</th>
+                <th>Badge</th>
+                <th>Health</th>
+                <th>Sync Status</th>
+              </tr>
+            </thead>
+            <tbody>
+                <p class="text-white">Last Sync: {{ .appList.TimeStamp | dateFormat }} </p>
+                {{ range .appList.Apps }}
+                <tr>
+                  <td>{{ .Metadata.Name }}</td>
+                  <td><img src='/img/{{ .Metadata.Name }}.svg'/></td>
+                  <td>{{ .Status.Health.Status }}</td>
+                  <td>{{ .Status.Sync.Status }}</td>
+                </tr>
+                {{ end }}
+            </tbody>
+          </table>
+        </div>
+    </body>
+</html>
