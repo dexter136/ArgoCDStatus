@@ -88,6 +88,9 @@ func dateFormat(t time.Time) string {
 }
 
 func main() {
+
+	gin.SetMode(gin.ReleaseMode)
+
 	var appList ArgoCDAppList
 
 	os.MkdirAll("./img", os.ModePerm)
@@ -114,6 +117,6 @@ func main() {
 			"appList": &appList,
 		})
 	})
-	router.Run()
+	router.Run(":80")
 
 }
