@@ -51,14 +51,18 @@ type ArgoResources struct {
 */
 
 func saveArgoBadge(appName, argocdUrl string) {
-	img, _ := os.Create(fmt.Sprintf("img/%s.svg", appName))
+	img, err := os.Create(fmt.Sprintf("img/%s.svg", appName))
 	defer img.Close()
-	resp, err := http.Get(fmt.Sprintf("%s/api/badge?name=%s&revision=true", argocdUrl, appName))
-
 	if err != nil {
-		log.Printf("Warning: Unable to gather ArgoCD Badge for %s response to AppList json. Error is %v", appName, err)
+		log.Printf("Warning: Unable to create file for ArgoCD Badge for %s. Error is %v", appName, err)
 	}
+
+	resp, err := http.Get(fmt.Sprintf("%s/api/badge?name=%s&revision=true", argocdUrl, appName))
 	defer resp.Body.Close()
+	if err != nil {
+		log.Printf("Warning: Unable to gather ArgoCD Badge for %s. Error is %v", appName, err)
+	}
+
 	io.Copy(img, resp.Body)
 }
 
@@ -134,7 +138,10 @@ func main() {
 
 	var appList ArgoCDAppList
 
-	os.MkdirAll("./img", os.ModePerm)
+	err := os.Mkdir("./img", os.ModePerm)
+	if err != nil && !os.IsExist(err) {
+		log.Fatal(err)
+	}
 
 	go getArgoApps(&appList)
 
