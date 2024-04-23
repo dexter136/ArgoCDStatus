@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -62,11 +63,29 @@ func saveArgoBadge(appName, argocdUrl string) {
 }
 
 func getArgoApps(AppList *ArgoCDAppList) {
-	argocdUrl, test := os.LookupEnv("ARGOCD_URL")
-	argocdUser, test := os.LookupEnv("ARGOCD_USER")
-	argocdPass, test := os.LookupEnv("ARGOCD_PASS")
 
-	// TODO: Validate inputs
+	argocdUrl, test := os.LookupEnv("ARGOCD_URL")
+	if !test {
+		log.Fatal("Fatal Error: ARGOCD_URL is not set.")
+	}
+	argocdUser, test := os.LookupEnv("ARGOCD_USER")
+	if !test {
+		log.Fatal("Fatal Error: ARGOCD_URL is not set.")
+	}
+	argocdPass, test := os.LookupEnv("ARGOCD_PASS")
+	if !test {
+		log.Fatal("Fatal Error: ARGOCD_URL is not set.")
+	}
+
+	var syncRefresh time.Duration = 120 * time.Second
+	syncEnv, test := os.LookupEnv("SYNC_REFRESH")
+	if test {
+		i, err := strconv.Atoi(syncEnv)
+		if err != nil {
+			log.Fatalf("Fatal Error: SYNC_REFRESH is set but could not be converted to an integer. Error is %v", err)
+		}
+		syncRefresh = time.Duration(i) * time.Second
+	}
 
 	client := resty.New()
 
@@ -83,9 +102,8 @@ func getArgoApps(AppList *ArgoCDAppList) {
 	}
 
 	for {
-		// TODO: Allow setting sync interval via ENV
-		if time.Now().Sub(AppList.LastAttempt).Seconds() < 120 {
-			time.Sleep(time.Second*120 - time.Now().Sub(AppList.LastAttempt))
+		if time.Now().Sub(AppList.LastAttempt) < syncRefresh {
+			time.Sleep(syncRefresh - time.Now().Sub(AppList.LastAttempt))
 		}
 		AppList.LastAttempt = time.Now()
 
@@ -112,7 +130,7 @@ func dateFormat(t time.Time) string {
 
 func main() {
 
-	//gin.SetMode(gin.ReleaseMode)
+	gin.SetMode(gin.ReleaseMode)
 
 	var appList ArgoCDAppList
 
@@ -140,6 +158,6 @@ func main() {
 			"appList": &appList,
 		})
 	})
-	router.Run(":8080")
+	router.Run(":80")
 
 }
