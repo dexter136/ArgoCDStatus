@@ -94,6 +94,22 @@ func getArgoCreds() (*ArgoCreds, error) {
 	return &creds, nil
 }
 
+func getSyncTime() (time.Duration, error) {
+	var syncRefresh time.Duration = 120 * time.Second
+	syncEnv, test := os.LookupEnv("SYNC_REFRESH")
+	if test {
+		i, err := strconv.Atoi(syncEnv)
+		if err != nil {
+			log.Println("Environment SYNC_REFRESH exists but could not be read. Defaulting sync rate to 120 seconds.")
+			return syncRefresh, err
+		}
+		log.Println("Sync rate set through environment SYNC_REFRESH. Using %i seconds.", i)
+		return time.Duration(i) * time.Second, nil
+	}
+	log.Println("Sync rate not set explicitly. Defaulting to 120 seconds.")
+	return syncRefresh, nil
+}
+
 func GetArgoApps(AppList *ArgoCDAppList) {
 
 	creds, err := getArgoCreds()
@@ -101,15 +117,7 @@ func GetArgoApps(AppList *ArgoCDAppList) {
 		log.Fatalf("Fatal error: Could not get argoCD credentials from ENV. Error is %v", err)
 	}
 
-	var syncRefresh time.Duration = 120 * time.Second
-	syncEnv, test := os.LookupEnv("SYNC_REFRESH")
-	if test {
-		i, err := strconv.Atoi(syncEnv)
-		if err != nil {
-			log.Fatalf("Fatal Error: SYNC_REFRESH is set but could not be converted to an integer. Error is %v", err)
-		}
-		syncRefresh = time.Duration(i) * time.Second
-	}
+	syncRefresh, _ := getSyncTime()
 
 	client := resty.New()
 
