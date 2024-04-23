@@ -2,6 +2,7 @@ package argoappread
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -36,6 +37,12 @@ type ArgoCDApp struct {
 	} `json:"status"`
 }
 
+type ArgoCreds struct {
+	Url      string
+	User     string
+	Password string
+}
+
 /* For possible future use
 type ArgoResources struct {
 	Version   string `json:"version"`
@@ -64,19 +71,34 @@ func saveArgoBadge(appName, argocdUrl string) {
 	io.Copy(img, resp.Body)
 }
 
-func GetArgoApps(AppList *ArgoCDAppList) {
-
+func getArgoCreds() (*ArgoCreds, error) {
 	argocdUrl, test := os.LookupEnv("ARGOCD_URL")
 	if !test {
-		log.Fatal("Fatal Error: ARGOCD_URL is not set.")
+		return nil, errors.New("ARGOCD_URL is not set")
 	}
 	argocdUser, test := os.LookupEnv("ARGOCD_USER")
 	if !test {
-		log.Fatal("Fatal Error: ARGOCD_URL is not set.")
+		return nil, errors.New("ARGOCD_USER is not set")
 	}
 	argocdPass, test := os.LookupEnv("ARGOCD_PASS")
 	if !test {
-		log.Fatal("Fatal Error: ARGOCD_URL is not set.")
+		return nil, errors.New("ARGOCD_PASS is not set")
+	}
+
+	creds := ArgoCreds{
+		Url:      argocdUrl,
+		User:     argocdUser,
+		Password: argocdPass,
+	}
+
+	return &creds, nil
+}
+
+func GetArgoApps(AppList *ArgoCDAppList) {
+
+	creds, err := getArgoCreds()
+	if err != nil {
+		log.Fatalf("Fatal error: Could not get argoCD credentials from ENV. Error is %v", err)
 	}
 
 	var syncRefresh time.Duration = 120 * time.Second
@@ -92,8 +114,8 @@ func GetArgoApps(AppList *ArgoCDAppList) {
 	client := resty.New()
 
 	resp, err := client.R().
-		SetBody(map[string]interface{}{"username": argocdUser, "password": argocdPass}).
-		Post(fmt.Sprintf("%s/api/v1/session", argocdUrl))
+		SetBody(map[string]interface{}{"username": creds.User, "password": creds.Password}).
+		Post(fmt.Sprintf("%s/api/v1/session", creds.Url))
 
 	//Require initial login attempt to be successful to allow app to run
 	if err != nil {
@@ -109,7 +131,7 @@ func GetArgoApps(AppList *ArgoCDAppList) {
 		}
 		AppList.LastAttempt = time.Now()
 
-		resp, err = client.R().Get(fmt.Sprintf("%s/api/v1/applications", argocdUrl))
+		resp, err = client.R().Get(fmt.Sprintf("%s/api/v1/applications", creds.Url))
 		if err != nil {
 			log.Printf("Error: Unable to gather applications from ArgoCD. Error is %v", err)
 		} else {
@@ -120,7 +142,7 @@ func GetArgoApps(AppList *ArgoCDAppList) {
 			}
 			AppList.LastSync = time.Now()
 			for _, app := range AppList.Apps {
-				saveArgoBadge(app.Metadata.Name, argocdUrl)
+				saveArgoBadge(app.Metadata.Name, creds.Url)
 			}
 		}
 	}
