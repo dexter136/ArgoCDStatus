@@ -57,16 +57,16 @@ type ArgoResources struct {
 
 func saveArgoBadge(appName, argocdUrl string) {
 	img, err := os.Create(fmt.Sprintf("img/%s.svg", appName))
-	defer img.Close()
 	if err != nil {
 		log.Printf("Warning: Unable to create file for ArgoCD Badge for %s. Error is %v", appName, err)
 	}
+	defer img.Close()
 
 	resp, err := http.Get(fmt.Sprintf("%s/api/badge?name=%s&revision=true", argocdUrl, appName))
-	defer resp.Body.Close()
 	if err != nil {
 		log.Printf("Warning: Unable to gather ArgoCD Badge for %s. Error is %v", appName, err)
 	}
+	defer resp.Body.Close()
 
 	io.Copy(img, resp.Body)
 }
