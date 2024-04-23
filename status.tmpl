@@ -10,6 +10,7 @@
        </style>
     </head>
     <body>
+        <p class="text-white">Last Sync Attempt: {{ .appList.LastAttempt | dateFormat }} Last Successful Sync: {{ .appList.LastSync | dateFormat }}</p>
         <table id="data" class="table table-dark">
             <thead>
               <tr>
@@ -20,7 +21,6 @@
               </tr>
             </thead>
             <tbody>
-                <p class="text-white">Last Sync: {{ .appList.TimeStamp | dateFormat }} </p>
                 {{ range .appList.Apps }}
                 <tr>
                   <td>{{ .Metadata.Name }}</td>

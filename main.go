@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"time"
@@ -14,8 +15,9 @@ import (
 )
 
 type ArgoCDAppList struct {
-	Apps      []ArgoCDApp `json:"items"`
-	TimeStamp time.Time
+	Apps        []ArgoCDApp `json:"items"`
+	LastSync    time.Time
+	LastAttempt time.Time
 }
 
 type ArgoCDApp struct {
@@ -47,38 +49,59 @@ type ArgoResources struct {
 }
 */
 
+func saveArgoBadge(appName, argocdUrl string) {
+	img, _ := os.Create(fmt.Sprintf("img/%s.svg", appName))
+	defer img.Close()
+	resp, err := http.Get(fmt.Sprintf("%s/api/badge?name=%s&revision=true", argocdUrl, appName))
+
+	if err != nil {
+		log.Printf("Warning: Unable to gather ArgoCD Badge for %s response to AppList json. Error is %v", appName, err)
+	}
+	defer resp.Body.Close()
+	io.Copy(img, resp.Body)
+}
+
 func getArgoApps(AppList *ArgoCDAppList) {
-	argocdUrl := os.Getenv("ARGOCD_URL")
-	argocdUser := os.Getenv("ARGOCD_USER")
-	argocdPass := os.Getenv("ARGOCD_PASS")
+	argocdUrl, test := os.LookupEnv("ARGOCD_URL")
+	argocdUser, test := os.LookupEnv("ARGOCD_USER")
+	argocdPass, test := os.LookupEnv("ARGOCD_PASS")
+
 	// TODO: Validate inputs
 
 	client := resty.New()
 
-	resp, _ := client.R().
+	resp, err := client.R().
 		SetBody(map[string]interface{}{"username": argocdUser, "password": argocdPass}).
 		Post(fmt.Sprintf("%s/api/v1/session", argocdUrl))
-	// TODO: Error check login
+
+	//Require initial login attempt to be successful to allow app to run
+	if err != nil {
+		log.Fatalf("Fatal Error: Unable to reach ArgoCD. Error is %v", err)
+	}
+	if resp.StatusCode() != 200 {
+		log.Fatalf("Fatal Error: Bad response from ArgoCD. Response is %v", resp.String())
+	}
 
 	for {
 		// TODO: Allow setting sync interval via ENV
-		if time.Now().Sub(AppList.TimeStamp).Seconds() < 120 {
-			time.Sleep(time.Second*120 - time.Now().Sub(AppList.TimeStamp))
+		if time.Now().Sub(AppList.LastAttempt).Seconds() < 120 {
+			time.Sleep(time.Second*120 - time.Now().Sub(AppList.LastAttempt))
 		}
+		AppList.LastAttempt = time.Now()
 
-		resp, _ = client.R().Get(fmt.Sprintf("%s/api/v1/applications", argocdUrl))
-		// TODO: Error check repsonse
+		resp, err = client.R().Get(fmt.Sprintf("%s/api/v1/applications", argocdUrl))
+		if err != nil {
+			log.Printf("Error: Unable to gather applications from ArgoCD. Error is %v", err)
+		} else {
+			err := json.Unmarshal(resp.Body(), &AppList)
 
-		json.Unmarshal(resp.Body(), &AppList)
-		// TODO: Error check applist
-
-		AppList.TimeStamp = time.Now()
-		for _, app := range AppList.Apps {
-			img, _ := os.Create(fmt.Sprintf("img/%s.svg", app.Metadata.Name))
-			defer img.Close()
-			resp, _ := http.Get(fmt.Sprintf("%s/api/badge?name=%s&revision=true", argocdUrl, app.Metadata.Name))
-			defer resp.Body.Close()
-			io.Copy(img, resp.Body)
+			if err != nil {
+				log.Printf("Warning: Unable to convert ArgoCD response to AppList json. Error is %v", err)
+			}
+			AppList.LastSync = time.Now()
+			for _, app := range AppList.Apps {
+				saveArgoBadge(app.Metadata.Name, argocdUrl)
+			}
 		}
 	}
 }
@@ -89,7 +112,7 @@ func dateFormat(t time.Time) string {
 
 func main() {
 
-	gin.SetMode(gin.ReleaseMode)
+	//gin.SetMode(gin.ReleaseMode)
 
 	var appList ArgoCDAppList
 
@@ -117,6 +140,6 @@ func main() {
 			"appList": &appList,
 		})
 	})
-	router.Run(":80")
+	router.Run(":8080")
 
 }
