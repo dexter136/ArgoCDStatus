@@ -134,8 +134,8 @@ func GetArgoApps(AppList *ArgoCDAppList) {
 	}
 
 	for {
-		if time.Now().Sub(AppList.LastAttempt) < syncRefresh {
-			time.Sleep(syncRefresh - time.Now().Sub(AppList.LastAttempt))
+		if time.Since(AppList.LastAttempt) < syncRefresh {
+			time.Sleep(syncRefresh - time.Since(AppList.LastAttempt))
 		}
 		AppList.LastAttempt = time.Now()
 
